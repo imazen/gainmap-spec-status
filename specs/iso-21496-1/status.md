@@ -72,7 +72,11 @@ Bibliography                                                      15
 - **§6 Gain map application** — the canonical evaluation function:
   `log_gain = mix(min_log2, max_log2, recovery)`; `gain = 2^log_gain`;
   `alt = (base + base_offset) * gain - alt_offset`. Scale by current display
-  headroom ratio in log space before evaluating.
+  headroom ratio in log space before evaluating. See
+  [`apply-math-and-banding.md`](apply-math-and-banding.md) for the fully
+  verified formula with every field sourced, a discussion of the
+  display-weight factor, what the offsets are actually for, and where
+  banding enters the pipeline.
 - **Annex B (normative)** — colour space conversions to get into the
   application space before the multiply.
 - **Annex C (normative)** — container bindings. This is where 21496-1 tells
