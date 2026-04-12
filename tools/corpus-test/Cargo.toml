@@ -1,0 +1,19 @@
+[package]
+name = "corpus-test"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "corpus-test"
+path = "src/main.rs"
+
+[dependencies]
+# Use published versions so this test harness is isolated from in-flight
+# workspace refactors (zencodec/zenpixels ColorAuthority churn).
+zencodec        = "0.1.13"
+zenavif-parse   = "0.6.1"
+zenjxl-decoder  = "0.3.7"
+walkdir         = "2"
+
+[workspace]
