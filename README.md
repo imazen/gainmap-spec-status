@@ -1,0 +1,72 @@
+# gainmap-spec-status
+
+A living map of gain map (HDR headroom) support across image format specifications,
+cross-referenced with the zen family of image codecs.
+
+## What is a gain map?
+
+A **gain map** is an auxiliary per-pixel image that reconstructs an HDR rendering of
+a baseline image by applying a per-pixel multiplier. It lets a single image file carry
+both SDR and HDR representations with minimal size overhead, and lets the display
+pick an interpolation point based on its available HDR headroom.
+
+The canonical schema for gain map metadata (ratios, gamma, offsets, headroom,
+color primaries) is **ISO 21496-1:2025**. Each image container is responsible only
+for *how* to store the gain map pixel data, its metadata payload, and the association
+between the base and alternate images.
+
+## Status snapshot (2026-04-11)
+
+| Format | Authority | Mechanism | Spec status | Ref impl |
+|---|---|---|---|---|
+| **JPEG / UltraHDR** | Google + Adobe (de-facto); ISO 21496-1 Annex C | XMP + MPF + appended JPEG gain map image | Shipping (UltraHDR v1.1) | `libultrahdr` 1.4.0 |
+| **AVIF** | AOM + ISO/IEC 23008-12 Amd 1 | HEIF `tmap` derived image item + `altr` entity group | Shipping (HEIF Amd 1:2025-10) | `libavif` 1.4.x |
+| **HEIC / HEIF** | ISO/IEC 23008-12 Amd 1 | same as AVIF | Shipping (2025-10) | Apple, Nokia `heif` |
+| **JPEG XL** | JPEG WG1 / ISO 18181 + libjxl | `jhgm` box (21496-1 blob + alt ICC + JXL codestream) | Reference impl only; ISO amendment status unclear | `libjxl` ≥ 0.11 |
+| **PNG** | W3C PNG WG | `gMAP` + `gDAT` chunks (proposed) | Open proposal, blocked on free 21496-1 text | *(none)* |
+| **TIFF / DNG** | Adobe (DNG), ISO TC42 (TIFF/EP) | *(none)* | No track | *(none)* |
+
+See [`specs/`](specs/) for per-format spec trace notes.
+See [`audit/`](audit/) for the compliance audit against our zen crates.
+See [`test-vectors/`](test-vectors/) for cross-codec sample files and provenance.
+
+## Layout
+
+```
+specs/
+  iso-21496-1/     ISO 21496-1:2025 extracted text + field tables
+  png/             w3c/png#380, gMAP/gDAT proposal, #366 liaison
+  avif-heif/       HEIF Amd 1, av1-avif tmap section, altr grouping
+  jxl/             jhgm box, libjxl gain_map.h API
+  tiff-dng/        status: no track + evidence
+  apple/           APPLEDNG / AMPF / MakerNote variant
+  adobe/           Camera Raw HDR / UltraHDR whitepaper lineage
+audit/
+  compliance-matrix.md
+  <crate>.md       per-zen-crate findings
+test-vectors/
+  jpeg/  avif/  jxl/  png/  tiff/
+  sources/         upstream corpora + provenance
+  manifest.toml    SHA256 + license + source per file
+tools/
+  generate-test-vectors.sh
+  fetch-specs.sh
+raw-pdfs/          downloaded PDFs (gitignored if >30kb)
+```
+
+## Why this repo exists
+
+1. **Pin a moving target.** Every major format is in mid-flight on gain map
+   support. This repo records the 2026-04 state so future sessions do not re-derive it.
+2. **Drive zen compliance.** Our zen codec family (zenjpeg, zenavif, zenjxl,
+   zenpng, zentiff, zenraw, ultrahdr, imageflow) ships or plans gain map
+   support. The audit finds gaps and over-spec deviations.
+3. **Shared test corpus.** Bug reproducers and interop tests need the same
+   tiny files across codecs. This repo owns them once.
+
+## Non-goals
+
+- Not a spec itself. We cite, we do not propose.
+- Not a tutorial. See the [UltraHDR overview](https://developer.android.com/media/platform/hdr-image-format) or
+  [Greg Benz's write-up](https://gregbenzphotography.com/hdr-photos/iso-21496-1-gain-maps-share-hdr-photos/) for background.
+- Not a benchmark. Sibling `codec-eval` and `zenbench` own that.
