@@ -337,6 +337,7 @@ dependencies = [
  "fallible_collections",
  "leb128",
  "log",
+ "zencodec",
 ]
 
 [[package]]

@@ -30,35 +30,65 @@ pub struct GainMapMetadata {
     pub base_hdr_headroom_n: u32, base_hdr_headroom_d: u32,
     pub alternate_hdr_headroom_n: u32, alternate_hdr_headroom_d: u32,
     pub channels: [GainMapChannel; 3],
+    // NOTE: no `writer_version` field — silently dropped on parse
 }
 impl GainMapMetadata {
     pub fn parse_tmap_bytes(data: &[u8]) -> Result<Self>;
-    pub fn serialize_tmap_bytes(&self) -> Vec<u8>;
+    pub fn to_bytes(&self) -> Vec<u8>;
 }
 impl From<&GainMapMetadata> for zencodec::GainMapParams { ... }
 impl From<&zencodec::GainMapParams> for GainMapMetadata { ... }
 ```
 
-This is an **independent representation using raw integer fractions** (more
-faithful to the wire format than zencodec's f64-converted form) with explicit
-`From` conversions to/from zencodec. Good separation — avoids lossy f64
-roundtrip for byte-exact serialization.
+This is an **independent representation using raw integer fractions** — more
+faithful to the wire format than zencodec's f64-converted form. This means
+zenavif-parse is the crate to use when byte-exact round-trip matters.
+**However, it has its own ISO 21496-1 parser** (`parse_tone_map_image` at
+`lib.rs:3758`) — a third independent parser alongside zencodec and ultrahdr-core.
 
-### Compliance
+### Compliance — bugs found by corpus differential testing
 
-- Accepts only fields ISO 21496-1 §5.2 defines.
-- Uses the AVIF (`tmap`) wire variant with the `version(u8)` byte prefix.
-- Round-trips via zencodec::GainMapParams for pipeline consumers.
+**Two P0 bugs found via `tools/corpus-test` against the 22-fixture parameter
+matrix. Tracked in [imazen/zenavif-parse#3](https://github.com/imazen/zenavif-parse/issues/3).**
+
+1. **`FLAG_COMMON_DENOMINATOR` (bit 3) silently ignored** (`lib.rs:3782-3784`).
+   The flags byte reader only extracts `is_multichannel`, `use_base_colour_space`,
+   and `backward_direction`. Bit 3 (the compact-encoding flag used by
+   libultrahdr) is never checked, so the parser unconditionally reads the
+   full-form layout. On common-denom payloads this either:
+   - Returns `Error::UnexpectedEOF` if the payload is shorter than expected
+     (3/22 fixtures in our corpus do this)
+   - Silently misparses into garbage fractions if the payload happens to be
+     long enough
+
+2. **`writer_version` dropped on parse, hardcoded `0u16` on serialize**
+   (`lib.rs:3774`, `lib.rs:515`). The `GainMapMetadata` struct does not even
+   store `writer_version`. Any nonzero writer_version from the producer is
+   lost on parse and cannot be recovered for byte-exact round-trip.
+   1/22 fixtures in our corpus fails round-trip for this reason.
+
+### What works
+
+- Full-form, writer_version=0, all flag combinations of multichannel /
+  use_base_colour_space / backward_direction: **18/22 fixtures** pass
+  parse + byte-exact round-trip.
+- Differential parse against `zencodec::GainMapParams` via `From` conversion
+  agrees field-by-field on the 18 successful fixtures (within 1e-6).
+- Raw integer fractions preserve byte-exact denominators where zencodec's
+  f64 representation would lose precision.
 
 ### Gaps
 
-- **Byte-exact round-trip test exists** (see `zenavif-parse/CHANGELOG.md`
-  "Gain map byte-exact and backward_direction parity tests"). Good.
+- **Fix the two P0 bugs above** before relying on zenavif-parse for common-denom
+  interop (libultrahdr-produced UltraHDR→AVIF transcode, etc).
 - **Gain map grid items not tested.** libavif #2397 allows gain map items
   with their own `grid` derivation. We should add a parse test for a
   multi-tile gain map.
 - **No `altr` group test** — verify the parser reads the base ↔ tmap entity
   group pairing correctly.
+- **Three independent ISO 21496-1 parsers exist** (zencodec, ultrahdr-core,
+  zenavif-parse). Drift risk is real — the two bugs above demonstrate it.
+  See `audit/compliance-matrix.md` finding #1.
 
 ## zenavif-serialize
 

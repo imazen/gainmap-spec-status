@@ -34,19 +34,50 @@ libjxl `jhgm`, UltraHDR v1.1 (de-facto), W3C PNG `gMAP` proposal
 
 ## Findings
 
-### 1. Duplicate ISO 21496-1 parser 🔁 (high priority)
+### 1. Three duplicate ISO 21496-1 parsers 🔁 (high priority)
 
-- `zencodec/src/gainmap.rs` (2176 lines) and
-  `ultrahdr/ultrahdr-core/src/metadata/iso21496.rs` (1671 lines) are
-  independent implementations of the same ISO 21496-1 parser.
-- They share constant values, header sizes, and flag definitions by
-  coincidence of correctness, not by sharing code.
-- **Risk:** a spec amendment (e.g. Amendment 1 adding a flag) will
-  require editing both. Drift between them would corrupt one pipeline
-  without breaking the other.
-- **Action:** delete `ultrahdr-core/src/metadata/iso21496.rs` and depend
-  on `zencodec::gainmap`. Keep ultrahdr-core-specific helpers
-  (`JpegIsoMarkers`, `create_iso_app2_marker`) as thin wrappers.
+**Updated 2026-04-11:** initial audit found two duplicates; the corpus
+differential test found a third and proved drift has already happened.
+
+- `zencodec/src/gainmap.rs` (2176 lines) — canonical
+- `ultrahdr/ultrahdr-core/src/metadata/iso21496.rs` (1671 lines) — known duplicate
+- `zenavif-parse/src/lib.rs::parse_tone_map_image` (~70 LOC at line 3758) — **third duplicate**
+
+All three are independent implementations. They agree on the basic layout
+but not on the edges: the corpus parameter-matrix test
+([tools/corpus-test](../tools/corpus-test)) found zenavif-parse **silently
+ignores `FLAG_COMMON_DENOMINATOR` (bit 3)** and **drops `writer_version`
+on parse**. 4/22 AvifTmap fixtures fail as a result. See
+[imazen/zenavif-parse#3](https://github.com/imazen/zenavif-parse/issues/3).
+
+- **Risk:** drift is not hypothetical — it's already present. Every spec
+  amendment that adds a flag or field will require editing all three.
+- **Actions:**
+  - P0: fix the two zenavif-parse bugs (tracked in issue #3)
+  - P0: delete `ultrahdr-core/src/metadata/iso21496.rs` (tracked in
+    [imazen/ultrahdr#4](https://github.com/imazen/ultrahdr/issues/4))
+  - P1: decide whether zenavif-parse should keep its own parser (needed
+    for byte-exact raw-fraction round-trip — zencodec's f64 form is lossy)
+    or should delegate to zencodec and add a `to_bytes_exact()` helper
+    that preserves the original wire bytes verbatim via a parsed-bytes
+    tag.
+
+### 1a. zencodec serializer is lossy by design ⚠️
+
+`zencodec::gainmap::serialize_iso21496_fmt` uses `UFraction::from_f64_cf()`
+/ `Fraction::from_f64_cf()` — the "canonical form" picks a denominator
+matching f32 resolution (~2^-24). Parse-serialize-parse round-trip
+preserves **values** within ~1e-7 but does **not** preserve the original
+numerator/denominator.
+
+**Consequence:** zencodec cannot be used for byte-exact re-muxing of AVIF
+`tmap` items where the producer's exact fractions must be preserved.
+That path requires zenavif-parse (which has bugs — see above) or a new
+exact-preserving API on zencodec.
+
+**Action:** document in `zencodec/CLAUDE.md` as a design choice. Track
+whether a `GainMapParams::from_bytes_exact()` + `to_bytes_exact()` API
+that round-trips the raw wire bytes should be added.
 
 ### 2. HEIF Amendment 1 `tmap` gap in `heic` ❌ (high priority)
 
@@ -158,12 +189,35 @@ Per UltraHDR v1.1 hdrgm: namespace:
 
 ## Action list (prioritized)
 
-1. **P0** — delete ultrahdr-core ISO parser, depend on zencodec::gainmap
-2. **P0** — add HEIF `tmap` support to `heic`
-3. **P1** — populate `test-vectors/` with upstream samples (avif, jxl, jpeg, heic)
-4. **P1** — verify AVIF `tmap` item hidden flag
-5. **P1** — differential test zenjxl-decoder against libjxl-produced `jhgm`
-6. **P2** — rename zenraw's DNG OpcodeList2 GainMap to "lens shading table"
-7. **P2** — test gain map grid derivation path in zenavif-parse
-8. **P3** — Apple→ISO metadata conversion helper (shared between zenraw,
-   heic, ultrahdr-core)
+1. **P0** — [imazen/zenavif-parse#3](https://github.com/imazen/zenavif-parse/issues/3) — fix FLAG_COMMON_DENOMINATOR + writer_version handling
+2. **P0** — [imazen/ultrahdr#4](https://github.com/imazen/ultrahdr/issues/4) — delete ultrahdr-core ISO parser, depend on zencodec::gainmap
+3. **P0** — [imazen/heic#8](https://github.com/imazen/heic/issues/8) — add HEIF Amd 1 `tmap` support
+4. **P1** — [imazen/zenraw#2](https://github.com/imazen/zenraw/issues/2) — rename DNG opcode-9 GainMap terminology
+5. **P1** — populate `test-vectors/heic/` with Apple + HEIF Amd 1 samples
+6. **P1** — verify AVIF `tmap` item hidden flag (zenavif-serialize)
+7. **P1** — differential test zenjxl-decoder against real `cjxl --ultrahdr` output
+8. **P2** — test gain map grid derivation path in zenavif-parse
+9. **P2** — consider exact-preserving ISO 21496-1 API in zencodec (see finding 1a)
+10. **P3** — Apple → ISO metadata conversion helper (shared between zenraw,
+    heic, ultrahdr-core)
+
+## Test coverage — 2026-04-11
+
+After expanding `tools/corpus-test` to run against a 22-case parameter
+matrix covering direction / multichannel / common-denom / boundary
+fractions / varied denominators / gamma / i32 extremes / writer_version:
+
+| Category | Fixtures | Pass | Fail |
+|---|---|---|---|
+| sources/*_jpeg.bin (zencodec JpegApp2 round-trip) | 22 | 22 (100%) | 0 |
+| sources/*_avif.bin (zencodec + zenavif-parse differential) | 22 | 18 (82%) | **4** |
+| avif/ (libavif fixtures) | 5 | 5 | 0 |
+| jxl/ (synthetic jhgm) | 2 | 2 | 0 |
+| jpeg/ (ultrahdr-conformance subset) | 5 | 5 | 0 |
+| **Total** | **56** | **52 (93%)** | **4** |
+
+Parameter axes exercised: see `tools/gen-iso21496.py` for the matrix.
+
+**Scale sweeps (no fixture-matrix-level failures, probe mode):**
+- `libavif/tests/data/`: 69/69 pass (56 AVIFs + 13 JPEGs)
+- `codec-corpus/ultrahdr-conformance/`: 49/51 pass (2 intentional skips)
