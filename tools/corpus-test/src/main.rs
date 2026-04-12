@@ -240,14 +240,43 @@ fn test_iso21496_avif(path: &Path) -> Outcome {
         Err(e) => return Outcome::Fail(format!("zenavif-parse parse: {e:?}")),
     };
 
-    // 3. Byte-exact round-trip via zenavif-parse (raw-fraction preserving)
+    // 3. Round-trip via zenavif-parse.
+    //    Full-form inputs (FLAG_COMMON_DENOMINATOR bit 3 clear in the flag
+    //    byte at offset 5) must round-trip byte-exactly.
+    //    Common-denom inputs expand to full form on parse and serialize
+    //    as full form — so we do struct-identity (parse → to_bytes → parse
+    //    → compare) instead of byte-exact. See
+    //    `gainmap-spec-status/audit/zenavif.md` for the design rationale.
+    let flags = bytes.get(5).copied().unwrap_or(0);
+    let was_common_denom = (flags & 0x08) != 0;
     let re_bytes = za_meta.to_bytes();
-    if re_bytes != bytes {
-        return Outcome::Fail(format!(
-            "zenavif-parse round-trip not byte-exact: {} vs {} bytes",
-            bytes.len(),
-            re_bytes.len()
-        ));
+    if !was_common_denom {
+        if re_bytes != bytes {
+            return Outcome::Fail(format!(
+                "zenavif-parse byte-exact round-trip failed: {} vs {} bytes",
+                bytes.len(),
+                re_bytes.len()
+            ));
+        }
+    } else {
+        // Common-denom: re-serialized output must not have FLAG_COMMON_DENOMINATOR
+        // set, and reparse must yield an equivalent struct.
+        let out_flags = re_bytes.get(5).copied().unwrap_or(0);
+        if out_flags & 0x08 != 0 {
+            return Outcome::Fail(
+                "common-denom input: re-serialized output still has FLAG_COMMON_DENOMINATOR set"
+                    .into(),
+            );
+        }
+        let reparsed = match zenavif_parse::GainMapMetadata::parse_tmap_bytes(&re_bytes) {
+            Ok(m) => m,
+            Err(e) => {
+                return Outcome::Fail(format!("common-denom reparse failed: {e:?}"));
+            }
+        };
+        if reparsed != za_meta {
+            return Outcome::Fail("common-denom struct round-trip drift".into());
+        }
     }
 
     // 4. Differential: convert zenavif-parse metadata → zencodec params,
