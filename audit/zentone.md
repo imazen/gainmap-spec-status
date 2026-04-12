@@ -207,6 +207,21 @@ Key items for zentone:
 6. **1/1.08 gamma for 203↔100 cd/m2 (BT.2408 Annex 11):** Preserves
    shadow detail at the perceivable black threshold (0.02 cd/m2) when
    converting between the two SDR reference white standards.
+7. **BT.2446 Methods A/B/C (read 2026-04-12):** Three matched TMO/ITMO
+   pairs for HDR↔SDR conversion. Full details in
+   [`specs/itu-r-bt2408-bt2390/bt2446.md`](../specs/itu-r-bt2408-bt2390/bt2446.md).
+   - **Method A:** Graded content, 1000→100 cd/m2, piecewise polynomial
+     with perceptual linearization, Y'Cb'Cr' colour correction for Hunt
+     effect. Psychophysically verified round-trip (imperceptible losses).
+   - **Method B:** Live broadcast, conservative 291 cd/m2 ceiling,
+     simplified HLG path, ICTCP gamut clipping. Good round-trip below
+     78% SDR breakpoint.
+   - **Method C:** Parametric (k1-k4 derived from skin tone analysis),
+     linear+log tone curve in Yxy, crosstalk matrix for hue preservation,
+     optional L\*a\*b\* chroma correction. Mathematical inverse available
+     → exact round-trip. HDR ref white → 95% SDR (uses super-whites).
+   zentone should implement Method A as a named curve and Method C's
+   parametric form as a detection target for `AdaptiveTonemapper`.
 
 ## Follow-ups for this repo
 

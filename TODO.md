@@ -89,9 +89,8 @@ land.
 Check quarterly:
 
 - [ ] **ITU-R BT.2408** — any new revision (currently -8, 11/2024)
-- [ ] **ITU-R BT.2446** — HDR/SDR conversion methods (not yet read; cited
-      by BT.2408 §5.2 as the source for three display-light conversion
-      methods). Should be added to `specs/itu-r-bt2408-bt2390/`.
+- [ ] **ITU-R BT.2446** — check for revisions beyond -1 (03/2021). Read
+      and documented in `specs/itu-r-bt2408-bt2390/bt2446.md`.
 - [ ] **w3c/png#380, #536** — 4th edition gain map proposal status
 - [ ] **libjxl** — is there an ISO/IEC 18181 Amendment adding `jhgm`?
 - [ ] **Adobe DNG spec page** — any 1.8 draft with gain map tags?
@@ -143,6 +142,18 @@ Check quarterly:
       luminance-preserving OOTF `alpha * Ys^(gamma-1) * E`. Needed for
       HLG↔PQ conversion and any future HLG gain map support.
       See `specs/itu-r-bt2408-bt2390/status.md` §8-9.
+- [ ] **Implement BT.2446 Method A TMO/ITMO as `ToneMapCurve::Bt2446A`.**
+      Piecewise polynomial with perceptual linearization, 1000→100 cd/m2.
+      Psychophysically verified round-trip. ~50 LOC per direction.
+      See `specs/itu-r-bt2408-bt2390/bt2446.md`.
+- [ ] **Add BT.2446 Method C parametric curve to `detect_standard`.**
+      The k1-k4 parameter derivation (from skin tones + inflection point)
+      is a detection target for `AdaptiveTonemapper`. Parametric form
+      enables exact round-trip via analytic inverse.
+- [ ] **Evaluate BT.2408 EETF vs BT.2446 Method A for 1000→100 cd/m2.**
+      Both are reference tone mappers for the same conversion but use
+      different math (Hermite spline vs piecewise polynomial). Compare
+      output on the same inputs and document which zentone should default to.
 
 ## Repo hygiene
 
