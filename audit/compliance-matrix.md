@@ -14,23 +14,33 @@ libjxl `jhgm`, UltraHDR v1.1 (de-facto), W3C PNG `gMAP` proposal
 
 ## Summary matrix
 
-| Crate | Parse 21496-1 | Serialize 21496-1 | Container binding | Alt ICC | Multi-channel | Common denom | Backward dir | Test vectors |
-|---|---|---|---|---|---|---|---|---|
-| **zencodec** (canonical) | ✅ JpegApp2 + AvifTmap | ✅ both variants | ➖ | ➖ | ✅ | ✅ | ✅ | ⚠️ unit only |
-| **ultrahdr-core** | 🔁 duplicate of zencodec | 🔁 | JPEG APP2 marker | via ICC profile box | ✅ | ✅ | ✅ | ⚠️ unit only |
-| **zenjpeg** (ultrahdr) | delegated to ultrahdr-core | delegated | JPEG + MPF + XMP | via APP2 ICC | ✅ | ✅ | ✅ | ⚠️ synthetic |
-| **zenavif-parse** | ✅ native, via `parse_tmap_bytes` | ✅ `serialize_tmap_bytes` | AVIF `tmap` read | `alt_colr` property | ✅ | ✅ | ✅ | ⚠️ byte-exact unit |
-| **zenavif-serialize** | ➖ (accepts blob) | ➖ (accepts blob) | AVIF `tmap` + `altr` write | ✅ via ColrBox | ⚠️ monochrome flag | ➖ | ➖ | ⚠️ unit |
-| **zenavif** | via zenavif-parse | via zenavif-serialize | full round-trip | ✅ | ✅ | ✅ | ✅ | ❌ real-file |
-| **zenjxl-decoder** | ➖ (returns blob) | ➖ (round-trips blob) | JXL `jhgm` read | Brotli-compressed | ➖ | ➖ | ➖ | ❌ real-file |
-| **jxl-encoder** | ➖ | ➖ | JXL `jhgm` append | ➖ | ➖ | ➖ | ➖ | ⚠️ unit only |
-| **zenjxl** | via zenjxl-decoder | via jxl-encoder | JXL full pipeline | ✅ | ✅ via zencodec | ✅ | ✅ | ❌ real-file |
-| **heic** | ➖ | ➖ | Apple aux item only | ➖ | ➖ | ➖ | ➖ | ❌ real-file |
-| **heic** (HEIF `tmap`) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **zenraw** | ➖ (Apple vendor) | ➖ | Apple MPF in APPLEDNG | ➖ | ➖ | ➖ | ➖ | ⚠️ synthetic |
-| **zenpng** | ➖ | ➖ | ➖ (spec not merged) | ➖ | ➖ | ➖ | ➖ | ➖ |
-| **zentiff** | ➖ | ➖ | ➖ (no spec) | ➖ | ➖ | ➖ | ➖ | ➖ |
-| **image-tiff** | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+Updated 2026-04-11 after 22-fixture matrix differential test. See
+[`encoders.md`](encoders.md) for encode-path specifics.
+
+| Crate | Parse 21496-1 | Serialize 21496-1 | Container binding | Alt ICC | Multi-channel | Common denom (read) | Common denom (write) | Backward dir | Test vectors |
+|---|---|---|---|---|---|---|---|---|---|
+| **zencodec** (canonical) | ✅ JpegApp2 + AvifTmap | ✅ full form only | ➖ | ➖ | ✅ | ✅ | ❌ | ✅ | ✅ 22-case matrix |
+| **ultrahdr-core** | 🔁 duplicate | 🔁 full form only | JPEG APP2 marker | via ICC profile box | ✅ | ✅ | ❌ | ✅ | ⚠️ unit only |
+| **zenjpeg** (ultrahdr) | via ultrahdr-core | via ultrahdr-core | JPEG + MPF + XMP | via APP2 ICC | ✅ | ✅ | ❌ | ✅ | ⚠️ synthetic |
+| **zenavif-parse** | ⚠️ bugs — see #3 | ⚠️ drops writer_version | AVIF `tmap` read | `alt_colr` property | ✅ | ❌ **bug** | ❌ | ✅ | ✅ 18/22 pass |
+| **zenavif-serialize** | ➖ (accepts blob) | ➖ (accepts blob) | AVIF `tmap` + `altr` write | ✅ via ColrBox | ⚠️ monochrome flag | ➖ | ➖ | ➖ | ⚠️ unit |
+| **zenavif** | via zenavif-parse | via zenavif-serialize | full round-trip | ✅ | ✅ | inherits bug | ❌ | ✅ | ❌ real-file |
+| **zenjxl-decoder** | ➖ (returns blob) | ➖ (round-trips blob) | JXL `jhgm` read | Brotli-compressed | ➖ | ➖ | ➖ | ➖ | ❌ real-file |
+| **jxl-encoder** | ➖ | ➖ | JXL `jhgm` append | ➖ | ➖ | ➖ | ➖ | ➖ | ⚠️ unit only |
+| **zenjxl** | via zenjxl-decoder | via jxl-encoder | JXL full pipeline | ✅ | ✅ via zencodec | ✅ via zencodec | ❌ | ✅ | ❌ real-file |
+| **ravif** | ➖ | ➖ (accepts blob) | AVIF via zenavif-serialize | via caller | ➖ | ➖ | ➖ | ➖ | ⚠️ unit |
+| **zenrav1e** | ➖ (not its role) | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ✅ by design |
+| **heic** | ➖ | ➖ | Apple aux item only | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ real-file |
+| **heic** (HEIF `tmap`) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **zenraw** | ➖ (Apple vendor) | ➖ | Apple MPF in APPLEDNG | ➖ | ➖ | ➖ | ➖ | ➖ | ⚠️ synthetic |
+| **zenpng** | ➖ | ➖ | ➖ (spec not merged) | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+| **zentiff** | ➖ | ➖ | ➖ (no spec) | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+| **image-tiff** | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
+
+**Common-denom writer column is uniformly ❌ across all serializers.** No
+zen crate can emit libultrahdr-canonical common-denom form. Documented in
+`audit/encoders.md` finding #1 as a compliance gap (not a bug — full form
+is universally readable).
 
 ## Findings
 
@@ -191,14 +201,18 @@ Per UltraHDR v1.1 hdrgm: namespace:
 
 1. **P0** — [imazen/zenavif-parse#3](https://github.com/imazen/zenavif-parse/issues/3) — fix FLAG_COMMON_DENOMINATOR + writer_version handling
 2. **P0** — [imazen/ultrahdr#4](https://github.com/imazen/ultrahdr/issues/4) — delete ultrahdr-core ISO parser, depend on zencodec::gainmap
-3. **P0** — [imazen/heic#8](https://github.com/imazen/heic/issues/8) — add HEIF Amd 1 `tmap` support
-4. **P1** — [imazen/zenraw#2](https://github.com/imazen/zenraw/issues/2) — rename DNG opcode-9 GainMap terminology
-5. **P1** — populate `test-vectors/heic/` with Apple + HEIF Amd 1 samples
-6. **P1** — verify AVIF `tmap` item hidden flag (zenavif-serialize)
-7. **P1** — differential test zenjxl-decoder against real `cjxl --ultrahdr` output
-8. **P2** — test gain map grid derivation path in zenavif-parse
-9. **P2** — consider exact-preserving ISO 21496-1 API in zencodec (see finding 1a)
-10. **P3** — Apple → ISO metadata conversion helper (shared between zenraw,
+3. **P0** — migrate `zenjpeg::ultrahdr::encode` from ultrahdr-core's serializer to `zencodec::gainmap::serialize_iso21496_fmt` (blocked on #4; see `audit/encoders.md` finding #2)
+4. **P0** — [imazen/heic#8](https://github.com/imazen/heic/issues/8) — add HEIF Amd 1 `tmap` support
+5. **P1** — bump `ultrahdr-core::generate_gainmap_xmp` from hardcoded `hdrgm:Version="1.0"` to v1.1 by default (`audit/encoders.md` finding #3)
+6. **P1** — [imazen/zenraw#2](https://github.com/imazen/zenraw/issues/2) — rename DNG opcode-9 GainMap terminology
+7. **P1** — populate `test-vectors/heic/` with Apple + HEIF Amd 1 samples
+8. **P1** — verify AVIF `tmap` item hidden flag (zenavif-serialize)
+9. **P1** — differential test zenjxl-decoder against real `cjxl --ultrahdr` output
+10. **P2** — test gain map grid derivation path in zenavif-parse
+11. **P2** — consider exact-preserving ISO 21496-1 API in zencodec (see finding 1a)
+12. **P2** — add common-denominator writer to zencodec (optional; for libultrahdr-canonical output — see `audit/encoders.md` finding #1)
+13. **P2** — encoder golden tests: zenjpeg UltraHDR + zenavif `tmap` + zenjxl `jhgm` against libultrahdr/libavif/libjxl reference (`audit/encoders.md` §Differential test gaps)
+14. **P3** — Apple → ISO metadata conversion helper (shared between zenraw,
     heic, ultrahdr-core)
 
 ## Test coverage — 2026-04-11
