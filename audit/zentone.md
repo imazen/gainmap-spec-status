@@ -178,6 +178,36 @@ that will be *displayed* through Android's libtonemap. Decoupling
 "encoding curve recognition" from "rendering curve prediction" is
 important here.
 
+## BT.2408 / BT.2390 reference (2026-04-12)
+
+The full BT.2408-8 (11/2024) and BT.2390-11 (10/2023) have been read and
+the relevant tone mapping math is documented in
+[`specs/itu-r-bt2408-bt2390/status.md`](../specs/itu-r-bt2408-bt2390/status.md).
+
+Key items for zentone:
+
+1. **EETF Hermite spline (BT.2408 Annex 5):** Five-step algorithm with
+   `KS = 1.5*maxLum - 0.5`, cubic Hermite knee, and `(1-E2)^4` tapered
+   black lift. This is what `Bt2408Tonemapper` should match.
+2. **EETF application color spaces:** Five options (ICTCP, Y'Cb'Cr',
+   YRGB, R'G'B', maxRGB) with documented tradeoffs. zentone currently
+   applies in R'G'B' per-channel — this avoids out-of-gamut colors but
+   over-desaturates bright saturated colors and can shift hue. For gain
+   map SDR base generation this is a reasonable default. ICTCP or a
+   blend of R'G'B' + maxRGB would give better perceptual results.
+3. **1.15-1.16 OOTF gamma adjustment (BT.2408 §5.1.3.2):** Compensates
+   for the subjective appearance change when scaling SDR 100→203 cd/m2.
+   BBC and ARIB subjective tests confirmed independently.
+4. **HLG system gamma (BT.2390 §6.2):**
+   `gamma = 1.2 + 0.42*log10(Lw/1000)`. zentone doesn't support HLG
+   yet but this is the formula needed for HLG↔PQ conversion.
+5. **Surround compensation (BT.2390 §6.2):**
+   `gamma_bright = gamma_ref - 0.076*log10(L_amb/5)`. Display gamma
+   depends on viewing environment, not just panel peak.
+6. **1/1.08 gamma for 203↔100 cd/m2 (BT.2408 Annex 11):** Preserves
+   shadow detail at the perceivable black threshold (0.02 cd/m2) when
+   converting between the two SDR reference white standards.
+
 ## Follow-ups for this repo
 
 - [ ] After `experimental::detect` lands in zentone, re-visit this audit
@@ -192,3 +222,11 @@ important here.
       own BT.2408 implementation (`libultrahdr/lib/src/`) — they should
       agree bitwise on identical inputs. Differential test belongs in
       `test-vectors/`.
+- [ ] Verify the EETF five steps (normalize, KS, Hermite, taper, denorm)
+      match zentone's implementation line-by-line against the BT.2408
+      Annex 5 formulas documented in
+      `specs/itu-r-bt2408-bt2390/status.md` §2.
+- [ ] Evaluate whether zentone should offer ICTCP or maxRGB-blend
+      application spaces in addition to per-channel R'G'B', for better
+      perceptual results on bright saturated content. BT.2408 recommends
+      blending R'G'B' + maxRGB as a middle ground.

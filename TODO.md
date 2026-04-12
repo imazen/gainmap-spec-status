@@ -88,6 +88,10 @@ land.
 
 Check quarterly:
 
+- [ ] **ITU-R BT.2408** — any new revision (currently -8, 11/2024)
+- [ ] **ITU-R BT.2446** — HDR/SDR conversion methods (not yet read; cited
+      by BT.2408 §5.2 as the source for three display-light conversion
+      methods). Should be added to `specs/itu-r-bt2408-bt2390/`.
 - [ ] **w3c/png#380, #536** — 4th edition gain map proposal status
 - [ ] **libjxl** — is there an ISO/IEC 18181 Amendment adding `jhgm`?
 - [ ] **Adobe DNG spec page** — any 1.8 draft with gain map tags?
@@ -117,6 +121,28 @@ Check quarterly:
 - [ ] **Differential test `Bt2408Tonemapper::make_luma_scale` against
       libultrahdr's BT.2408.** Both should agree bitwise on identical
       inputs. Add to `test-vectors/` once implemented.
+- [ ] **Verify EETF Hermite spline matches BT.2408 Annex 5 step-by-step.**
+      Check KS = 1.5*maxLum - 0.5, the (1-E2)^4 black level taper, and
+      the Hermite knot structure. Document in `audit/zentone.md`.
+      See `specs/itu-r-bt2408-bt2390/status.md` §2.
+- [ ] **Document EETF application color space.**
+      zentone currently applies tone mapping in R'G'B' per-channel — confirm
+      this is the intended choice for gain map SDR base generation and
+      document the tradeoffs vs ICTCP/maxRGB. See BT.2408 Annex 5 §A5.1.
+- [ ] **Add OOTF gamma adjustment (1.15-1.16) as an SDR→HDR option.**
+      BT.2408 §5.1.3.2 documents this for preserving subjective SDR
+      appearance when scaling 100→203 cd/m2. Useful for display-referred
+      SDR base generation. See `specs/itu-r-bt2408-bt2390/status.md` §4.
+- [ ] **Add 203↔100 cd/m2 gamma correction (1/1.08).**
+      BT.2408 Annex 11: when SDR base targets 100 cd/m2 but the gain map
+      system assumes 203 cd/m2 (or vice versa), this optional gamma
+      preserves shadow detail at the perceivable black threshold of
+      0.02 cd/m2. See `specs/itu-r-bt2408-bt2390/status.md` §7.
+- [ ] **Add HLG system gamma and OOTF support to zentone.**
+      BT.2390 defines `gamma = 1.2 + 0.42*log10(Lw/1000)` and the
+      luminance-preserving OOTF `alpha * Ys^(gamma-1) * E`. Needed for
+      HLG↔PQ conversion and any future HLG gain map support.
+      See `specs/itu-r-bt2408-bt2390/status.md` §8-9.
 
 ## Repo hygiene
 

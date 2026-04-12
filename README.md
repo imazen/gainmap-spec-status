@@ -27,6 +27,10 @@ between the base and alternate images.
 | **TIFF / DNG** | Adobe (DNG), ISO TC42 (TIFF/EP) | *(none)* | No track | *(none)* |
 
 See [`specs/`](specs/) for per-format spec trace notes.
+See [`specs/itu-r-bt2408-bt2390/`](specs/itu-r-bt2408-bt2390/) for the
+ITU-R tone mapping and HDR production guidance that informs gain map
+encoding: the BT.2408 EETF (Hermite spline), SDR-HDR mapping formulas,
+reference white levels, HLG system gamma, and display adaptation.
 See [`specs/os-rendering/`](specs/os-rendering/) for how platform
 compositors (Android, Apple, Skia/Chrome, Windows) surface HDR headroom
 and render gain maps at display time.
@@ -39,6 +43,8 @@ See [`test-vectors/`](test-vectors/) for cross-codec sample files and provenance
 ```
 specs/
   iso-21496-1/     ISO 21496-1:2025 extracted text + field tables
+  itu-r-bt2408-bt2390/  BT.2408 EETF, SDR-HDR mapping, ref white;
+                        BT.2390 HLG gamma, OOTF, surround compensation
   png/             w3c/png#380, gMAP/gDAT proposal, #366 liaison
   avif-heif/       HEIF Amd 1, av1-avif tmap section, altr grouping
   jxl/             jhgm box, libjxl gain_map.h API
