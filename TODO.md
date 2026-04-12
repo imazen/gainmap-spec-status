@@ -95,6 +95,28 @@ Check quarterly:
       re-extract Annex C bindings.
 - [ ] **HEIF Amendment 1 free excerpt** — if a summary or reference code
       surfaces, capture it.
+- [ ] **AOSP `libtonemap` `Android13` algorithm** — read the full Hermite
+      formulation in
+      [`frameworks/native/libs/tonemap/tonemap.cpp`](https://android.googlesource.com/platform/frameworks/native/+/refs/heads/main/libs/tonemap/tonemap.cpp)
+      and note the curve family in
+      [`specs/os-rendering/status.md`](specs/os-rendering/status.md).
+      Currently we've only verified it references BT.2100 and uses
+      Hermite interpolation.
+- [ ] **Android 16/17 HDR headroom APIs** — check whether
+      `Window.setDesiredHdrHeadroom` gains per-region or more granular
+      negotiation beyond the API 35 shape.
+- [ ] **Windows native UltraHDR support** — currently cross-platform via
+      Skia `SkGainmapShader`. Watch for a first-party Windows codec API.
+
+## zentone follow-ups (design, not yet coded)
+
+- [ ] **Detect a standard curve in an adaptive fit.** Design in
+      [`audit/zentone.md`](audit/zentone.md) §"Open design: detect a
+      standard curve in an adaptive fit". Unlocks storing curve + params
+      instead of a 16 KB LUT in gain map metadata.
+- [ ] **Differential test `Bt2408Tonemapper::make_luma_scale` against
+      libultrahdr's BT.2408.** Both should agree bitwise on identical
+      inputs. Add to `test-vectors/` once implemented.
 
 ## Repo hygiene
 

@@ -27,7 +27,11 @@ between the base and alternate images.
 | **TIFF / DNG** | Adobe (DNG), ISO TC42 (TIFF/EP) | *(none)* | No track | *(none)* |
 
 See [`specs/`](specs/) for per-format spec trace notes.
-See [`audit/`](audit/) for the compliance audit against our zen crates.
+See [`specs/os-rendering/`](specs/os-rendering/) for how platform
+compositors (Android, Apple, Skia/Chrome, Windows) surface HDR headroom
+and render gain maps at display time.
+See [`audit/`](audit/) for the compliance audit against our zen crates,
+including [`audit/zentone.md`](audit/zentone.md) for the tone mapping crate.
 See [`test-vectors/`](test-vectors/) for cross-codec sample files and provenance.
 
 ## Layout
@@ -41,9 +45,11 @@ specs/
   tiff-dng/        status: no track + evidence
   apple/           APPLEDNG / AMPF / MakerNote variant
   adobe/           Camera Raw HDR / UltraHDR whitepaper lineage
+  os-rendering/    display-side: Android libtonemap / Gainmap, Apple EDR,
+                   Skia SkGainmapShader, Windows SDR content brightness
 audit/
   compliance-matrix.md
-  <crate>.md       per-zen-crate findings
+  <crate>.md       per-zen-crate findings (including zentone)
 test-vectors/
   jpeg/  avif/  jxl/  png/  tiff/
   sources/         upstream corpora + provenance
