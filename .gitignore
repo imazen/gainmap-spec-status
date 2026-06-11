@@ -5,3 +5,5 @@ target/
 
 # Agent tool worktrees — not part of the repo
 .claude/
+.jj/
+.workongoing

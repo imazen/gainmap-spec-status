@@ -1,26 +1,20 @@
 # TODO — gap list
 
 Track active follow-ups from the initial audit (2026-04-11). Update as items
-land.
+land. **2026-06-11 review pass:** statuses updated below + addendum at the end
+(see `REVIEW-2026-06-11-forever-api.md` for the full delta report).
 
 ## Code changes in zen crates
 
 ### P0 — correctness / fork risk
 
-- [ ] **Delete duplicate ISO 21496-1 parser.**
-  Delete `ultrahdr/ultrahdr-core/src/metadata/iso21496.rs` and have
-  ultrahdr-core depend on `zencodec::gainmap`. Keep the ultrahdr-specific
-  marker helpers (`JpegIsoMarkers`, `create_iso_app2_marker`,
-  `create_jpeg_iso_markers`, `create_version_only_iso_app2`) as thin
-  adapters over `zencodec::gainmap::serialize_iso21496_fmt`.
-  See `audit/ultrahdr.md` §"ISO 21496-1 parser duplication".
+- [x] **Delete duplicate ISO 21496-1 parser.** *(done — verified 2026-06-11:
+  `ultrahdr-core/src/metadata/iso21496.rs` no longer exists; ultrahdr-core
+  re-exports `zencodec::GainMapParams` + `parse/serialize_iso21496_fmt`.)*
 
-- [ ] **Add HEIF Amd 1 `tmap` support to `heic`.**
-  Parallel API to the existing Apple aux-item path:
-  - `heic::decode_tmap_gain_map(data) -> Result<HdrGainMap>`
-  - Teach `heic::has_gain_map` to detect *either* `tmap` or Apple aux
-  - Return a unified `HdrGainMap` with an `Origin { AppleAux, Tmap }` tag
-  See `audit/heic.md`.
+- [x] **Add HEIF Amd 1 `tmap` support to `heic`.** *(done — verified 2026-06-11:
+  `heic/src/lib.rs:809+` has the `tmap` path with `Origin { AppleAux, Tmap }`
+  tagging, and the zencodec adapter declares `gain_map` + `reconstructs_hdr`.)*
 
 ### P1 — test + verification
 
@@ -172,3 +166,38 @@ Check quarterly:
   rejects. This can swap the direction of gain map application if the
   sibling headroom fields disagree. Documented in `zenjpeg/CLAUDE.md`.
   Decide: align with libultrahdr or document as intentional.
+
+---
+
+## Addendum — 2026-06-11 review pass
+
+New/updated watches and gaps from `REVIEW-2026-06-11-forever-api.md`:
+
+### Spec-watch updates
+- [ ] **Re-verify `specs/itu-r-bt2408-bt2390/` against BT.2408-9 (03/2026) and
+  BT.2390-12 (03/2025)** — both revved under our -8/-11 notes. Precondition for
+  any zentone EETF implementation (zenpixels#39 Rung 3).
+- [x] **JXL `jhgm` ISO status resolved** — standardized in ISO/IEC 18181-2:2026
+  (3rd ed); next edition (JXL-in-ISOBMFF/HEIF) at CD stage.
+- [ ] **AGTM / gain curves (SMPTE ST 2094-50 + forthcoming free AOM twin)** —
+  Skia m145 ships `skhdr::Agtm`; Chromium has `kHdrAgtm` (default off); PNG WG
+  blocked awaiting the AOM version. Watch quarterly; permanent-API consequence:
+  adaptation payloads are an extensible enum, never gain-map-only.
+- [ ] **ISO 22028-5:2026 published (May 2026, full IS)** + PNG `dWLm`/`rWTm`
+  chunk proposals + libheif 1.23 ambient/diffuse-white APIs — "headroom becomes
+  a tuple (peak, diffuse white, ambient)". Track for encode_pq16 semantics.
+- [ ] **Android 16 private PNG chunks `gmAP`+`gdAT`** (PNG-in-PNG gain map,
+  HDR screenshots) — decoders will meet these in the wild; W3C public chunks
+  still blocked. Decide whether zenpng should *read* the private form.
+- [ ] **libheif/Nokia still have zero `tmap` support** (libheif 1.23.0,
+  heif 3.7.1; libheif#1685 unanswered) — our `heic` crate is the only
+  non-Apple HEIC gain-map reader; keep interop tests authoritative.
+
+### Code gaps (new)
+- [ ] **zenavif-parse: preserve `writer_version` on round-trip** — parsed +
+  validated but not stored; re-serialize always emits 0. ~10 LOC.
+- [ ] **3-channel gain maps + HDR-base direction reversal are mainstream**
+  (iOS 18 RGB maps; Android 16 reversed files) — promote both from edge cases
+  to required rows in zencodec#24 Phase-2 and zenpixels 0.3.0 test matrices.
+- [ ] **Expect de-facto ISO 21496-1 gain maps in TIFF** (Adobe ACR 17+ since
+  Oct 2024) — zentiff/zenraw probe behavior should at least not mangle them.
