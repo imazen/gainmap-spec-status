@@ -70,12 +70,21 @@ zentone, roundtrip tools) · `ContentLightLevel` (6) · transfer+headroom (5) ·
 `MasteringDisplay` (4) · explicit direction (4) · gain-map dims/bit-depth (3/2) ·
 application space (2, now Android-16-live) · tone-curve provenance (1–2, future).
 
-Pipeline truths the API must fix (they are *why* #16 exists):
-- CLL/MDCV live on `zencodec::SourceColor` but **not** on `zenpixels::ColorContext`
-  → any zenpipe stage between decode and encode loses them.
-- zenpipe currently parks decoded gain maps as an `RGB8_SRGB` sidecar (bit depth and
-  transfer lost) — the plumbing gap Rung 4 + zencodec#24 Phase 4 must close.
-- `finalize_for_output_with` hardcodes `hdr: None` today.
+Pipeline truths, **corrected by source verification (2026-06-11 scope audit)**:
+- ~~CLL/MDCV are lost between decode and encode~~ — **wrong for zenpipe**: it
+  carries them end-to-end on the `zencodec::Metadata` channel
+  (`zenpipe/src/job.rs:887` "Keep content_light_level and mastering_display",
+  re-attached at `:1015`). The gap exists only for bare-`PixelBuffer` library
+  flows that bypass the Metadata channel — a far weaker case for a
+  `ColorContext` break than #16's motivation stated.
+- The "zenpipe parks gain maps as an RGB8_SRGB sidecar" claim from the consumer
+  inventory cited a nonexistent path and is **unconfirmed** — verify in
+  `zenpipe/src/{job,session,orchestrate}.rs` before letting it justify work.
+- `finalize_for_output_with` hardcodes `hdr: None` today (verified).
+- CLL **computation** (scan pixels → MaxCLL/MaxFALL) has exactly **one** consumer
+  today: hdr-corpus-convert's `render_pq16`. zenjxl maps `intensity_target`→CLL
+  and zenpng moves chunk bytes — transport, not computation. The earlier
+  "6 consumers" count conflated the two.
 - imageflow has zero HDR surface (decision needed eventually, out of scope here).
 - zensim/zenmetrics run their own HDR feeding paths and do **not** need pixel-side
   provenance — consistent with keeping luminance/IQA fields out of zenpixels (#34
@@ -158,6 +167,52 @@ carry raw ISO payload bytes (provenance of bindings) for byte-faithful re-emit.
 
 Safe regardless (unchanged): Rung 1 test hardening; Rung 2 helpers under A3
 semantics; all of zencodec#24 Phase 0/1 additive types.
+
+## 7b. Same-day scope audit (anti-overscope / anti-YAGNI pass)
+
+A deliberate adversarial pass over this review's own conclusions, with source
+verification of the agent claims that justified API work. Outcomes:
+
+**Wrong-problem corrections**
+- **Layer transit, not mirror-split, is the demand-backed transcode model.** The
+  ecosystem norm is per-layer handling — gain maps are routinely sub-resolution,
+  so independent base/map resampling is standard practice; a resize/crop/format
+  CDN never needs reconstruct-then-resplit. Mirror-split (and therefore most of
+  #16's `HdrProvenance`-on-pixels rationale) only matters for ops that must run
+  on *merged* HDR pixels, and no such consumer exists today. zencodec#24
+  Phase 4's `Components → with_gain_map` passthrough — using already-existing
+  types — covers the real use case with **zero zenpixels breaking change**.
+- **The CLL/MDCV pipeline-loss premise was falsified** (see §3 corrections).
+
+**Demotions (gates hardened)**
+- zenpixels 0.3.0 / `HdrProvenance`: from "gated rung" to **hypothesis** — needs
+  a named use case that layer transit + the Metadata channel cannot serve. The
+  `#[non_exhaustive]`/endianness batch waits with it; no break without a driver.
+- zencodec#24: **Phase 0 only** (prove native HDR with tests — zero new API) is
+  unconditional. Phases 1–4 wait for a named encode/transcode consumer.
+  "Additive" is not free on a freshly-published crate.
+- zenavif/zenjxl `GainMapRender` wiring: neither declares the caps (no
+  dishonesty exists) and no consumer decodes HDR avif/jxl in our flows — defer.
+- Rung 2 helpers ship **small and honest**: one real consumer; the value is
+  deleting hand-rolled copies + pinning CTA-861.3-A/PNG-3 semantics, not
+  serving an imagined fleet. No SIMD until profiled.
+
+**Baked-ignorance ledger**
+- ISO 21496-1 / 22028-5 / HEIF Amd 1 / ST 2094-50 normative text is paywalled;
+  our parameter tables are reverse-engineered from libavif/libultrahdr.
+  **Recommendation: purchase the specs before freezing any "forever" shape.**
+  Until then, the differential tests against libavif/libultrahdr (already in
+  TODO) are the authoritative oracle — they, not prose, are the anti-drift
+  mechanism.
+- Secondary-source items (Adobe convergence details, libultrahdr roadmap)
+  remain labeled as such; they inform watches, never gates.
+- Process rule adopted: any agent-sourced claim that justifies API work gets
+  spot-verified in source first (two such claims failed verification in this
+  audit; one had already propagated into this doc's §3).
+
+**Kept without reservation** (defends existing shipped behavior): hdr.rs test
+hardening (Rung 1); zenjpeg#144; zenwebp#58; zenpipe#38/#39/#40; the
+differential-test and fixture TODOs.
 
 ## 8. Repo refresh done with this review
 
